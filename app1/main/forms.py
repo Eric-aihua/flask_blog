@@ -1,3 +1,4 @@
+from flask_pagedown.fields import PageDownField
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, TextAreaField, SelectField, BooleanField, PasswordField
 from wtforms.validators import DataRequired, Length, Regexp, ValidationError, Email, EqualTo
@@ -78,4 +79,9 @@ class ChangeEmailForm(FlaskForm):
 
     def validate_email(self, field):
         if User.query.filter_by(email=field.data).first():
+
             raise ValidationError('Email already registered.')
+
+class PostForm(FlaskForm):
+    body = PageDownField("What's on your mind?", validators=[DataRequired()])
+    submit = SubmitField('Submit')

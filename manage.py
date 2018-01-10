@@ -2,7 +2,7 @@
 
 import os
 from app1 import create_app, db
-from app1.models import User, Role
+from app1.models import User, Role, Post
 from flask.ext.script import Manager, Shell
 from flask.ext.migrate import Migrate, MigrateCommand
 
@@ -13,7 +13,7 @@ migrate = Migrate(app, db)
 
 
 def make_shell_context():
-    return dict(app=app, db=db, User=User, Role=Role)
+    return dict(app=app, db=db, User=User, Role=Role,Post=Post)
 
 # 通过注解的方式注册命令
 @manager.command
