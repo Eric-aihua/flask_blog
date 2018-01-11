@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-from flask import render_template, redirect, request, url_for, flash
+from flask import render_template, redirect, request, url_for, flash, current_app
 from flask.ext.login import login_user
 from flask_login import login_required, logout_user, current_user
 
@@ -25,6 +25,7 @@ def login():
                 next = url_for('main.index')
             return redirect(next)
         flash('Invalid username or password.')
+    current_app.logger.warning("#####>>>>>:%s login successful!")
     return render_template('auth/login.html', form=form)
 
 

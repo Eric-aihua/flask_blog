@@ -3,11 +3,12 @@ import hashlib
 from datetime import datetime
 
 import bleach
-from flask import current_app, request
+from flask import current_app, request, url_for
 from flask_login import AnonymousUserMixin
-from itsdangerous import Serializer
+from itsdangerous import Serializer, TimedJSONWebSignatureSerializer
 from markdown import markdown
 
+from app1.exceptions import ValidationError
 from . import db
 from flask.ext.login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -217,6 +218,22 @@ class User(UserMixin, db.Model):
         return self.followers.filter_by(
             follower_id=user.id).first() is not None
 
+    def generate_auth_token(self, expiration):
+        s = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'],
+                       expires_in=expiration)
+        return s.dumps({'id': self.id}).decode('utf-8')
+
+    @staticmethod
+    def verify_auth_token(token):
+        s = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+        except BaseException,ex:
+            print ex
+            return None
+        return User.query.get(data['id'])
+
+
     # 获取当前用户关注用户发布的post
     @property
     def followed_posts(self):
@@ -231,6 +248,20 @@ class User(UserMixin, db.Model):
                 user.follow(user)
                 db.session.add(user)
                 db.session.commit()
+
+    def to_json(self):
+        json_user = {
+            'url': url_for('api.get_user', id=self.id),
+            'username': self.username,
+            'member_since': self.member_since,
+            'last_seen': self.last_seen,
+            'posts_url': url_for('api.get_user_posts', id=self.id),
+            'followed_posts_url': url_for('api.get_user_followed_posts',
+                                          id=self.id),
+            'post_count': self.posts.count()
+        }
+        return json_user
+
 
 
 class AnonymousUser(AnonymousUserMixin):
@@ -258,6 +289,26 @@ class Post(db.Model):
             markdown(value, output_format='html'),
             tags=allowed_tags, strip=True))
 
+    def to_json(self):
+        json_post = {
+            'url': url_for('api.get_post', id=self.id),
+            'body': self.body,
+            'body_html': self.body_html,
+            'timestamp': self.timestamp,
+            'author_url': url_for('api.get_user', id=self.author_id),
+            'comments_url': url_for('api.get_post_comments', id=self.id),
+            'comment_count': self.comments.count()
+        }
+        return json_post
+
+    @staticmethod
+    def from_json(json_post):
+        body = json_post.get('body')
+        if body is None or body == '':
+            raise ValidationError('post does not have a body')
+        return Post(body=body)
+
+
 #on_changed_body 函数注册在 body 字段上，是 SQLAlchemy“set”事件的监听程序，这意味着只要这个类实例的 body 字段设了新值，函数就会自动被调用。
 db.event.listen(Post.body, 'set', Post.on_changed_body)
 
@@ -279,6 +330,17 @@ class Comment(db.Model):
         target.body_html = bleach.linkify(bleach.clean(
             markdown(value, output_format='html'),
             tags=allowed_tags, strip=True))
+
+    def to_json(self):
+        json_comment = {
+            'url': url_for('api.get_comment', id=self.id),
+            'post_url': url_for('api.get_post', id=self.post_id),
+            'body': self.body,
+            'body_html': self.body_html,
+            'timestamp': self.timestamp,
+            'author_url': url_for('api.get_user', id=self.author_id),
+        }
+        return json_comment
 
 db.event.listen(Comment.body, 'set', Comment.on_changed_body)
 
