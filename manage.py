@@ -55,7 +55,7 @@ def coverage_test():
         COV.erase()
 
 
-# @app.cli.command()
+# 以profile的模型运行app,用来做性能分析
 @manager.command
 @manager.option('-l', '--length', target='length',
                 help='Number of functions to include in the profiler report.')
